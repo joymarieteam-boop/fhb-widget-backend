@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { type, identity, answer } = req.body || {};
+    const { type, identity, answer, contactId } = req.body || {};
 
     const API_KEY = process.env.GHL_API_KEY;
     const LOCATION_ID = process.env.GHL_LOCATION_ID;
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     }
 
     if (type === "answer") {
-      if (!answer?.contactId) {
+      if (!contactId) {
         return res.status(400).json({ error: "Missing contactId." });
       }
 
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
         ]
       };
 
-      const ghlRes = await fetch(`https://services.leadconnectorhq.com/contacts/${answer.contactId}`, {
+      const ghlRes = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${API_KEY}`,
