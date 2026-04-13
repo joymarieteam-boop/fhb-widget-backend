@@ -18,12 +18,16 @@ export default async function handler(req, res) {
     const LOCATION_ID = process.env.GHL_LOCATION_ID;
 
     if (!API_KEY || !LOCATION_ID) {
-      return res.status(500).json({ error: "Missing server environment variables." });
+      return res.status(500).json({
+        error: "Missing server environment variables."
+      });
     }
 
     if (type === "identity") {
       if (!identity?.fullName || !identity?.email || !identity?.phone) {
-        return res.status(400).json({ error: "Missing required identity fields." });
+        return res.status(400).json({
+          error: "Missing required identity fields."
+        });
       }
 
       const [firstName, ...rest] = String(identity.fullName).trim().split(/\s+/);
@@ -42,10 +46,10 @@ export default async function handler(req, res) {
       const ghlRes = await fetch("https://services.leadconnectorhq.com/contacts/upsert", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${API_KEY}`,
+          Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Version": "2021-07-28"
+          Accept: "application/json",
+          Version: "2021-07-28"
         },
         body: JSON.stringify(payload)
       });
@@ -63,6 +67,7 @@ export default async function handler(req, res) {
         data?.contact?.id ||
         data?.id ||
         data?.contactId ||
+        data?._id ||
         null;
 
       return res.status(200).json({
@@ -78,7 +83,9 @@ export default async function handler(req, res) {
       }
 
       if (!answer?.fieldName || !String(answer?.value || "").trim()) {
-        return res.status(400).json({ error: "Missing answer field or value." });
+        return res.status(400).json({
+          error: "Missing answer field or value."
+        });
       }
 
       const fieldMap = {
@@ -89,37 +96,49 @@ export default async function handler(req, res) {
         decision_readiness: process.env.GHL_CF_DECISION_READINESS
       };
 
-      const mappedField = fieldMap[answer.fieldName];
+      const mappedKey = fieldMap[answer.fieldName];
 
-      if (!mappedField) {
-        return res.status(400).json({ error: `Missing custom field mapping for ${answer.fieldName}` });
+      if (!mappedKey) {
+        return res.status(400).json({
+          error: `No mapping for ${answer.fieldName}`
+        });
       }
 
       const updatePayload = {
         customFields: [
           {
-            key: mappedField,
-            field_value: String(answer.value).trim()
+            key: mappedKey,
+            value: String(answer.value).trim()
           }
         ]
       };
 
-      const ghlRes = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Version": "2021-07-28"
-        },
-        body: JSON.stringify(updatePayload)
-      });
+      console.log("Updating contact:", contactId);
+      console.log("Field name:", answer.fieldName);
+      console.log("Mapped key:", mappedKey);
+      console.log("Payload:", JSON.stringify(updatePayload));
+
+      const ghlRes = await fetch(
+        `https://services.leadconnectorhq.com/contacts/${contactId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${API_KEY}`,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Version: "2021-07-28"
+          },
+          body: JSON.stringify(updatePayload)
+        }
+      );
 
       const data = await ghlRes.json().catch(() => ({}));
 
+      console.log("GHL answer response:", JSON.stringify(data));
+
       if (!ghlRes.ok) {
         return res.status(400).json({
-          error: data?.message || data?.error || "GHL answer update failed.",
+          error: data?.message || data?.error || "Failed updating contact",
           details: data
         });
       }
@@ -130,8 +149,11 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(400).json({ error: "Invalid request type." });
+    return res.status(400).json({
+      error: "Invalid request type."
+    });
   } catch (err) {
+    console.error("Server error:", err);
     return res.status(500).json({
       error: err?.message || "Server error."
     });
